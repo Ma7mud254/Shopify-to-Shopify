@@ -1,0 +1,348 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── AUTH & USERS ───────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  workspaces    WorkspaceMember[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── WORKSPACES ─────────────────────────────────────────────────
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members        WorkspaceMember[]
+  connectedShops ConnectedShop[]
+  migrationJobs  MigrationJob[]
+  subscription   Subscription?
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@map("workspace_members")
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+// ─── BILLING ────────────────────────────────────────────────────
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  workspaceId          String             @unique
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  stripePriceId        String?
+  status               SubscriptionStatus @default(INACTIVE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+// ─── CONNECTED SHOPS ───────────────────────────────────────────
+
+model ConnectedShop {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  shopDomain      String
+  shopName        String?
+  accessToken     String?  @db.Text // encrypted
+  scopes          String?
+  shopifyPlan     String?
+  primaryDomain   String?
+  email           String?
+  country         String?
+  currency        String?
+  installedAt     DateTime @default(now())
+  tokenExpiresAt  DateTime?
+  lastSyncAt      DateTime?
+  state           String?
+  isActive        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace            Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sourceJobs           MigrationJob[] @relation("SourceShop")
+  destinationJobs      MigrationJob[] @relation("DestinationShop")
+
+  @@unique([workspaceId, shopDomain])
+  @@index([workspaceId])
+  @@map("connected_shops")
+}
+
+// ─── MIGRATION JOBS ─────────────────────────────────────────────
+
+model MigrationJob {
+  id                String          @id @default(cuid())
+  workspaceId       String
+  sourceShopId      String
+  destinationShopId String
+  status            MigrationStatus @default(PENDING)
+  currentStep       String?
+  totalSteps        Int             @default(0)
+  completedSteps    Int             @default(0)
+  config            Json            // MigrationConfig: what to migrate + conflict behavior
+  dryRun            Boolean         @default(false)
+
+  // Counters
+  totalItems        Int             @default(0)
+  successCount      Int             @default(0)
+  failedCount       Int             @default(0)
+  skippedCount      Int             @default(0)
+
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sourceShop      ConnectedShop      @relation("SourceShop", fields: [sourceShopId], references: [id])
+  destinationShop ConnectedShop      @relation("DestinationShop", fields: [destinationShopId], references: [id])
+  items           MigrationJobItem[]
+  logs            JobLog[]
+  resourceMaps    ResourceMapping[]
+  metafieldMaps   MetafieldDefinitionMapping[]
+  reports         Report[]
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("migration_jobs")
+}
+
+enum MigrationStatus {
+  PENDING
+  VALIDATING
+  EXPORTING
+  PROCESSING
+  IMPORTING
+  FINALIZING
+  COMPLETED
+  FAILED
+  CANCELED
+  PAUSED
+}
+
+model MigrationJobItem {
+  id             String          @id @default(cuid())
+  jobId          String
+  resourceType   ResourceType
+  sourceId       String          // Shopify GID
+  sourceHandle   String?
+  sourceTitle    String?
+  destinationId  String?         // Shopify GID after import
+  status         ItemStatus      @default(PENDING)
+  errorMessage   String?         @db.Text
+  retryCount     Int             @default(0)
+  rawData        Json?           // source data snapshot
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  job MigrationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([jobId, status])
+  @@index([jobId, resourceType])
+  @@map("migration_job_items")
+}
+
+enum ResourceType {
+  PRODUCT
+  VARIANT
+  COLLECTION
+  PRODUCT_IMAGE
+  VARIANT_IMAGE
+  PRODUCT_METAFIELD
+  COLLECTION_METAFIELD
+  COLLECTION_MEMBERSHIP
+}
+
+enum ItemStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+// ─── RESOURCE MAPPING ───────────────────────────────────────────
+
+model ResourceMapping {
+  id             String       @id @default(cuid())
+  jobId          String
+  resourceType   ResourceType
+  sourceId       String
+  destinationId  String
+  sourceHandle   String?
+  createdAt      DateTime     @default(now())
+
+  job MigrationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, resourceType, sourceId])
+  @@index([jobId])
+  @@map("resource_mappings")
+}
+
+model MetafieldDefinitionMapping {
+  id                     String   @id @default(cuid())
+  jobId                  String
+  namespace              String
+  key                    String
+  ownerType              String
+  sourceDefinitionId     String?
+  destinationDefinitionId String?
+  created                Boolean  @default(false)
+  createdAt              DateTime @default(now())
+
+  job MigrationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, namespace, key, ownerType])
+  @@index([jobId])
+  @@map("metafield_definition_mappings")
+}
+
+// ─── LOGS & REPORTS ─────────────────────────────────────────────
+
+model JobLog {
+  id        String   @id @default(cuid())
+  jobId     String
+  level     LogLevel @default(INFO)
+  step      String?
+  message   String   @db.Text
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  job MigrationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([jobId, level])
+  @@map("job_logs")
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+model Report {
+  id          String     @id @default(cuid())
+  jobId       String
+  type        ReportType
+  filename    String
+  url         String?    @db.Text // S3/R2 URL
+  sizeBytes   Int?
+  generatedAt DateTime   @default(now())
+
+  job MigrationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@map("reports")
+}
+
+enum ReportType {
+  SUMMARY_JSON
+  FAILURES_CSV
+  FULL_LOG_JSONL
+  ITEMS_CSV
+}
