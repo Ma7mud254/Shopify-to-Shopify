@@ -10,6 +10,8 @@ import { Zap, Loader2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { loginWithCredentials, loginWithGoogle } from "@/app/actions/auth";
 
+const googleAuthEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -58,18 +60,22 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="relative my-6">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-              or
-            </span>
-          </div>
+          {googleAuthEnabled ? (
+            <>
+              <div className="relative my-6">
+                <Separator />
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                  or
+                </span>
+              </div>
 
-          <form action={loginWithGoogle}>
-            <Button variant="outline" className="w-full" type="submit" disabled={isPending}>
-              Continue with Google
-            </Button>
-          </form>
+              <form action={loginWithGoogle}>
+                <Button variant="outline" className="w-full" type="submit" disabled={isPending}>
+                  Continue with Google
+                </Button>
+              </form>
+            </>
+          ) : null}
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}

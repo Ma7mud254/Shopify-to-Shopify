@@ -1,19 +1,28 @@
 import type { NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
+const googleConfigured =
+  Boolean(process.env.GOOGLE_CLIENT_ID) &&
+  Boolean(process.env.GOOGLE_CLIENT_SECRET);
+
+const providers = [];
+
+if (googleConfigured) {
+  providers.push(
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    })
+  );
+}
+
 // Edge-compatible config
 export const authConfig = {
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
   },
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
-    // We add the implementation-heavy Credentials provider only in the non-edge auth.ts
-  ],
+  providers,
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
