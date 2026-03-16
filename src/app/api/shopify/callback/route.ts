@@ -158,12 +158,12 @@ export async function GET(req: Request) {
           await prisma.connectedShop.update({
             where: { id: updatedShop.id },
             data: {
-              name: shopInfo.name,
+              shopName: shopInfo.name,
               email: shopInfo.email,
-              domain: shopInfo.primaryDomain?.url?.replace(/^https?:\/\//, ""),
+              primaryDomain: shopInfo.primaryDomain?.url?.replace(/^https?:\/\//, ""),
               currency: shopInfo.currencyCode,
               country: shopInfo.billingAddress?.countryCodeV2,
-              plan: shopInfo.plan?.displayName,
+              shopifyPlan: shopInfo.plan?.displayName,
               lastSyncAt: new Date(),
             },
           });
