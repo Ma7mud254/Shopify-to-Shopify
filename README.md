@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ExportBase
 
-## Getting Started
+ExportBase is a Shopify-to-Shopify migration app built with Next.js, Prisma, BullMQ, PostgreSQL, and Redis.
 
-First, run the development server:
+## Local development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the web app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Run the migration worker in a second terminal:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run worker
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment variables
 
-## Learn More
+Use [`.env.example`](/C:/Users/Taha/Desktop/Shopify%20to%20Shopify%20Migration/exportbase/.env.example) for local development.
 
-To learn more about Next.js, take a look at the following resources:
+Use [`.env.production.example`](/C:/Users/Taha/Desktop/Shopify%20to%20Shopify%20Migration/exportbase/.env.production.example) for production hosting.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Production deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This app needs:
 
-## Deploy on Vercel
+- one web service for Next.js
+- one worker service for BullMQ
+- one PostgreSQL database
+- one Redis instance
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Recommended host: Render.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Files included for deployment:
+
+- [render.yaml](/C:/Users/Taha/Desktop/Shopify%20to%20Shopify%20Migration/exportbase/render.yaml)
+- [DEPLOYMENT.md](/C:/Users/Taha/Desktop/Shopify%20to%20Shopify%20Migration/exportbase/DEPLOYMENT.md)
+- [`.env.production.example`](/C:/Users/Taha/Desktop/Shopify%20to%20Shopify%20Migration/exportbase/.env.production.example)
+
+## Production checklist
+
+```bash
+npm run build
+npm run start
+npm run worker
+```
+
+Then:
+
+1. Push the repo to GitHub.
+2. Create the Render services from `render.yaml`.
+3. Fill in the required secret environment variables.
+4. Update your Shopify app URLs to your public domain.
