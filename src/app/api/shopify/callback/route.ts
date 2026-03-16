@@ -15,8 +15,13 @@ function logDebug(msg: string) {
   fs.appendFileSync(logPath, `[${timestamp}] ${msg}\n`);
 }
 
+function getAppBaseUrl(req: Request) {
+  return process.env.SHOPIFY_APP_URL || process.env.NEXTAUTH_URL || new URL(req.url).origin;
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
+  const appBaseUrl = getAppBaseUrl(req);
   const shopDomain = url.searchParams.get("shop");
   const state = url.searchParams.get("state");
   const code = url.searchParams.get("code");
@@ -25,7 +30,7 @@ export async function GET(req: Request) {
   logDebug(`CALLBACK_TRIGGERED: shop=${shopDomain}, state=${state}, code=${code ? "YES" : "NO"}`);
 
   if (!shopDomain || !state || !code) {
-    return NextResponse.redirect(new URL("/stores?error=missing_params", req.url));
+    return NextResponse.redirect(new URL("/stores?error=missing_params", appBaseUrl));
   }
 
   try {
@@ -80,7 +85,7 @@ export async function GET(req: Request) {
 
     if (!pendingShop) {
       logDebug(`ERROR_TOTAL_MISMATCH: state=${state}, shop=${shopDomain}`);
-      return NextResponse.redirect(new URL("/stores?error=no_pending_connection", req.url));
+      return NextResponse.redirect(new URL("/stores?error=no_pending_connection", appBaseUrl));
     }
 
     // Optional: Log state mismatch for debugging but don't hard block
@@ -176,13 +181,13 @@ export async function GET(req: Request) {
 
     // 5. Redirect to Stores page on success
     logDebug(`SUCCESS_REDIRECT: ${shopDomain}`);
-    return NextResponse.redirect(new URL("/stores?connected=true&shop=" + shopDomain, req.url));
+    return NextResponse.redirect(new URL("/stores?connected=true&shop=" + shopDomain, appBaseUrl));
   } catch (err: any) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
     logDebug(`CALLBACK_ERROR: ${errorMessage}`);
     console.error("Shopify OAuth Callback Error:", err);
     return NextResponse.redirect(
-      new URL(`/stores?error=auth_failed&msg=${encodeURIComponent(errorMessage)}`, req.url)
+      new URL(`/stores?error=auth_failed&msg=${encodeURIComponent(errorMessage)}`, appBaseUrl)
     );
   }
 }
