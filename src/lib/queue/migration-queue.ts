@@ -1,4 +1,5 @@
 import { Queue } from "bullmq";
+import type { JobType } from "bullmq";
 import { redis } from "./redis";
 
 export const MIGRATION_QUEUE_NAME = "shop-migration-queue";
@@ -28,7 +29,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export async function removeQueuedMigrationJob(migrationJobId: string) {
-  const states = ["waiting", "delayed", "prioritized", "active", "paused"] as const;
+  const states: JobType[] = ["waiting", "delayed", "prioritized", "active", "paused"];
   const jobs = await migrationQueue.getJobs(states, 0, 200);
 
   for (const job of jobs) {
